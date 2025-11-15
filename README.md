@@ -81,8 +81,8 @@
 ## 联系方式 / Contact
 
 **Michael Lee**  
-Email: `<277257652@qq.com>`  
-GitHub: [https://github.com/<corallibra>](https://github.com/<corallibra>)
+Email: `corallibra@qq.com`  
+GitHub: [https://github.com/corallibra](https://github.com/corallibra)
 
 ---
 
@@ -90,4 +90,4 @@ GitHub: [https://github.com/<corallibra>](https://github.com/<corallibra>)
 
 1. 克隆仓库 / Clone the repository:  
 ```bash
-git clone https://github.com/<你的用户名>/TCM_eclinic.git
+git clone https://github.com/corallibra/TCM_eclinic.git
