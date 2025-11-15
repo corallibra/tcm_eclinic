@@ -1,0 +1,8 @@
+python-docx
+mammoth
+pandas
+sqlalchemy
+PyQt6>=6.5
+reportlab
+scikit-learn
+jieba
