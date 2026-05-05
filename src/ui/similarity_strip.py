@@ -62,7 +62,7 @@ class SimilarityStrip(QTextBrowser):
         super().__init__(parent)
 
         self.setReadOnly(True)
-        self.document().setDefaultFont(QFont("Microsoft YaHei", 10))
+        self.document().setDefaultFont(QFont("Arial", 10))
         self.setLineWrapMode(QTextBrowser.LineWrapMode.NoWrap)
         self.setWordWrapMode(QTextOption.WrapMode.NoWrap)
         self.setOpenExternalLinks(True)

@@ -18,7 +18,7 @@ class LogConsole(QTextBrowser):
         super().__init__(parent)
 
         self.setReadOnly(True)
-        self.document().setDefaultFont(QFont("Microsoft YaHei", 10))
+        self.document().setDefaultFont(QFont("Arial", 10))
         self.setStyleSheet("""
         QTextBrowser {
             border: 1px solid #aaa;

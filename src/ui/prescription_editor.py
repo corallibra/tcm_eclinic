@@ -1,21 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-李玉贤名医工作室 — 处方录入编辑器（PyQt6 专用版本）
-完全对应《AAAF.doc》模板结构。
+处方编辑器 - 按照标准处方格式重新设计
 """
 
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QGroupBox, QFormLayout,
-    QHBoxLayout, QLabel, QLineEdit, QTextEdit,
-    QComboBox, QSpinBox, QTableWidget, QTableWidgetItem,
-    QHeaderView, QPushButton
+    QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
+    QLabel, QLineEdit, QTextEdit, QComboBox, QSpinBox,
+    QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox
 )
 from PyQt6.QtCore import Qt, QDate
 from typing import Union
-import json
-import math
 import datetime
-
 
 # ===================== 节气计算辅助 =====================
 SOLAR_TERMS = [
@@ -26,7 +21,7 @@ SOLAR_TERMS = [
 ]
 
 def get_solar_term(date: Union[QDate, datetime.date]) -> str:
-    """简单节气计算：根据月份近似返回节气"""
+    """简单节气计算"""
     if isinstance(date, QDate):
         month, day = date.month(), date.day()
     else:
@@ -38,125 +33,168 @@ def get_solar_term(date: Union[QDate, datetime.date]) -> str:
     return SOLAR_TERMS[idx]
 
 
-# ===================== 主界面 =====================
 class PrescriptionEditor(QWidget):
-    """中医处方编辑器（PyQt6版本）"""
+    """中医处方编辑器（按照标准处方格式）"""
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
 
-        # ======== 头部信息与患者信息（同一行两列） ========
-        top_hbox = QHBoxLayout()
-        
-        # 左侧：处方抬头信息
-        header_box = QGroupBox("处方抬头信息")
-        header_layout = QFormLayout(header_box)
+        # ======== 一、处方基本信息 ========
+        basic_box = QGroupBox("处方基本信息")
+        basic_layout = QFormLayout(basic_box)
 
+        # 第一行：煎药方式；日期
+        row1 = QHBoxLayout()
         self.jian_method = QComboBox()
         self.jian_method.addItems(["自煎", "院煎"])
+        self.date_edit = QLineEdit(QDate.currentDate().toString("yyyy-MM-dd"))
+        row1.addWidget(QLabel("煎药方式："))
+        row1.addWidget(self.jian_method)
+        row1.addWidget(QLabel("日期："))
+        row1.addWidget(self.date_edit)
+        basic_layout.addRow(row1)
 
-        today = QDate.currentDate()
-        self.date_edit = QLineEdit(today.toString("yyyy-MM-dd"))
-
-        self.jieqi_edit = QLineEdit(get_solar_term(today))
-        self.yunqi_edit = QLineEdit("五运六气自动生成")
-
-        header_layout.addRow("煎药方式：", self.jian_method)
-        header_layout.addRow("开具日期：", self.date_edit)
-        header_layout.addRow("节气：", self.jieqi_edit)
-        header_layout.addRow("五运六气：", self.yunqi_edit)
-
-        # 右侧：患者基本信息
-        info_box = QGroupBox("患者基本信息")
-        info_layout = QFormLayout(info_box)
-
+        # 第二行：姓名；性别；年龄
+        row2 = QHBoxLayout()
         self.name_edit = QLineEdit()
         self.gender_edit = QComboBox()
         self.gender_edit.addItems(["男", "女"])
         self.age_edit = QSpinBox()
         self.age_edit.setRange(0, 120)
+        row2.addWidget(QLabel("姓名："))
+        row2.addWidget(self.name_edit)
+        row2.addWidget(QLabel("性别："))
+        row2.addWidget(self.gender_edit)
+        row2.addWidget(QLabel("年龄："))
+        row2.addWidget(self.age_edit)
+        basic_layout.addRow(row2)
+
+        # 第三行：电话；地址
+        row3 = QHBoxLayout()
         self.phone_edit = QLineEdit()
         self.address_edit = QLineEdit()
+        row3.addWidget(QLabel("电话："))
+        row3.addWidget(self.phone_edit)
+        row3.addWidget(QLabel("地址："))
+        row3.addWidget(self.address_edit)
+        basic_layout.addRow(row3)
 
-        info_layout.addRow("姓名：", self.name_edit)
-        info_layout.addRow("性别：", self.gender_edit)
-        info_layout.addRow("年龄：", self.age_edit)
-        info_layout.addRow("电话：", self.phone_edit)
-        info_layout.addRow("地址：", self.address_edit)
+        # 第四行：节气；主运；客运；节点五运六气
+        row4 = QHBoxLayout()
+        self.jieqi_edit = QLineEdit(get_solar_term(QDate.currentDate()))
+        self.zhuyun_edit = QLineEdit()
+        self.keyun_edit = QLineEdit()
+        self.wuyun_edit = QLineEdit()
+        row4.addWidget(QLabel("节气："))
+        row4.addWidget(self.jieqi_edit)
+        row4.addWidget(QLabel("主运："))
+        row4.addWidget(self.zhuyun_edit)
+        row4.addWidget(QLabel("客运："))
+        row4.addWidget(self.keyun_edit)
+        row4.addWidget(QLabel("五运："))
+        row4.addWidget(self.wuyun_edit)
+        basic_layout.addRow(row4)
 
-        top_hbox.addWidget(header_box)
-        top_hbox.addWidget(info_box)
-
-        # ======== 诊断与辨证区（症状、舌、脉分列） ========
+        # ======== 二、诊断与辨证信息 ========
         diag_box = QGroupBox("诊断与辨证信息")
-        diag_layout = QFormLayout(diag_box)
+        diag_layout = QVBoxLayout(diag_box)
 
-        self.diagnosis_clinic = QLineEdit()
-        self.zhengxing = QLineEdit()
-        self.zhilaw = QLineEdit()
-        self.diagnosis_western = QLineEdit()
-        
-        self.complaint = QTextEdit()
-        self.complaint.setMaximumHeight(60)
-        
-        # 症状、舌象、脉象分列显示
-        self.symptom_edit = QTextEdit()
-        self.symptom_edit.setMaximumHeight(60)
+        # 主诉
+        complaint_layout = QHBoxLayout()
+        complaint_layout.addWidget(QLabel("主诉："))
+        self.complaint_edit = QLineEdit()
+        complaint_layout.addWidget(self.complaint_edit)
+        complaint_layout.addStretch()
+        diag_layout.addLayout(complaint_layout)
+
+        # 现病史
+        history_layout = QHBoxLayout()
+        history_layout.addWidget(QLabel("现病史："))
+        self.history_edit = QLineEdit()
+        history_layout.addWidget(self.history_edit)
+        history_layout.addStretch()
+        diag_layout.addLayout(history_layout)
+
+        # 舌像；脉象
+        tp_layout = QHBoxLayout()
+        tp_layout.addWidget(QLabel("舌像："))
         self.tongue_edit = QLineEdit()
+        tp_layout.addWidget(self.tongue_edit)
+        tp_layout.addWidget(QLabel("脉象："))
         self.pulse_edit = QLineEdit()
-        
-        self.zhenghou = QTextEdit()
-        self.zhenghou.setMaximumHeight(60)
+        tp_layout.addWidget(self.pulse_edit)
+        tp_layout.addStretch()
+        diag_layout.addLayout(tp_layout)
 
-        diag_layout.addRow("临床诊断：", self.diagnosis_clinic)
-        diag_layout.addRow("证型：", self.zhengxing)
-        diag_layout.addRow("治法：", self.zhilaw)
-        diag_layout.addRow("西医诊断：", self.diagnosis_western)
-        diag_layout.addRow("主诉：", self.complaint)
-        
-        # 症状、舌、脉分列显示
-        symptom_hbox = QHBoxLayout()
-        symptom_hbox.addWidget(QLabel("症状："))
-        symptom_hbox.addWidget(self.symptom_edit)
-        symptom_hbox.addWidget(QLabel("舌象："))
-        symptom_hbox.addWidget(self.tongue_edit)
-        symptom_hbox.addWidget(QLabel("脉象："))
-        symptom_hbox.addWidget(self.pulse_edit)
-        diag_layout.addRow(symptom_hbox)
-        
-        diag_layout.addRow("辨证：", self.zhenghou)
+        # 辨证
+        zhenghou_layout = QHBoxLayout()
+        zhenghou_layout.addWidget(QLabel("辨证："))
+        self.zhenghou_edit = QLineEdit()
+        zhenghou_layout.addWidget(self.zhenghou_edit)
+        zhenghou_layout.addStretch()
+        diag_layout.addLayout(zhenghou_layout)
 
-        # ======== 中药处方表格 ========
-        herb_box = QGroupBox("中药处方（每行三味）")
-        vbox = QVBoxLayout(herb_box)
-        self.herb_table = QTableWidget(9, 3)
-        self.herb_table.setHorizontalHeaderLabels(["药名", "剂量(g)", "备注（先煎/后下/烊化等）"])
+        # 中医诊断；中医病机
+        zy_layout = QHBoxLayout()
+        zy_layout.addWidget(QLabel("中医诊断："))
+        self.zhongyi_diagnosis = QLineEdit()
+        zy_layout.addWidget(self.zhongyi_diagnosis)
+        zy_layout.addWidget(QLabel("中医病机："))
+        self.zhongyi_bingji = QLineEdit()
+        zy_layout.addWidget(self.zhongyi_bingji)
+        zy_layout.addStretch()
+        diag_layout.addLayout(zy_layout)
+
+        # 中医证型；中医治法
+        zx_layout = QHBoxLayout()
+        zx_layout.addWidget(QLabel("中医证型："))
+        self.zhengxing_edit = QLineEdit()
+        zx_layout.addWidget(self.zhengxing_edit)
+        zx_layout.addWidget(QLabel("中医治法："))
+        self.zhifa_edit = QLineEdit()
+        zx_layout.addWidget(self.zhifa_edit)
+        zx_layout.addStretch()
+        diag_layout.addLayout(zx_layout)
+
+        # 西医诊断
+        xiyi_layout = QHBoxLayout()
+        xiyi_layout.addWidget(QLabel("西医诊断："))
+        self.xiyi_diagnosis = QLineEdit()
+        xiyi_layout.addWidget(self.xiyi_diagnosis)
+        xiyi_layout.addStretch()
+        diag_layout.addLayout(xiyi_layout)
+
+        # ======== 三、中药处方 ========
+        herb_box = QGroupBox("中药处方")
+        herb_layout = QVBoxLayout(herb_box)
+
+        self.herb_table = QTableWidget(12, 3)
+        self.herb_table.setHorizontalHeaderLabels(["药名", "剂量(g)", "备注"])
         self.herb_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        vbox.addWidget(self.herb_table)
+        herb_layout.addWidget(self.herb_table)
 
-        self.btn_add_row = QPushButton("＋ 添加药物行")
-        self.btn_add_row.clicked.connect(lambda: self.herb_table.insertRow(self.herb_table.rowCount()))
-        vbox.addWidget(self.btn_add_row, alignment=Qt.AlignmentFlag.AlignRight)
+        # 用法
+        usage_layout = QHBoxLayout()
+        self.dose_count = QLineEdit("7 剂")
+        self.usage_edit = QLineEdit("每日一剂，水煎服")
+        usage_layout.addWidget(QLabel("剂数："))
+        usage_layout.addWidget(self.dose_count)
+        usage_layout.addWidget(QLabel("用法："))
+        usage_layout.addWidget(self.usage_edit)
+        herb_layout.addLayout(usage_layout)
 
-        # ======== 用法与签名区 ========
-        usage_box = QGroupBox("用法与医师签名")
-        usage_layout = QFormLayout(usage_box)
+        # 医师
+        doctor_layout = QHBoxLayout()
+        self.doctor_edit = QLineEdit()
+        doctor_layout.addWidget(QLabel("医师："))
+        doctor_layout.addWidget(self.doctor_edit)
+        doctor_layout.addStretch()
+        herb_layout.addLayout(doctor_layout)
 
-        self.usage_edit = QTextEdit()
-        self.dose_edit = QLineEdit("7 剂")
-        self.doctor_edit = QLineEdit("李玉贤")
-        self.sign_date = QLineEdit(today.toString("yyyy-MM-dd"))
-
-        usage_layout.addRow("用法说明：", self.usage_edit)
-        usage_layout.addRow("剂数：", self.dose_edit)
-        usage_layout.addRow("医师签名：", self.doctor_edit)
-        usage_layout.addRow("日期：", self.sign_date)
-
-        # ======== 整体布局 ========
-        layout.addLayout(top_hbox)
+        # ======== 组装布局 ========
+        layout.addWidget(basic_box)
         layout.addWidget(diag_box)
         layout.addWidget(herb_box)
-        layout.addWidget(usage_box)
         layout.addStretch()
 
     # =====================================================
@@ -166,92 +204,77 @@ class PrescriptionEditor(QWidget):
         """导出表单为 dict"""
         herbs = []
         for r in range(self.herb_table.rowCount()):
-            row_data = {}
-            for c, key in enumerate(["name", "dose", "remark"]):
-                item = self.herb_table.item(r, c)
-                row_data[key] = item.text() if item else ""
-            if any(row_data.values()):
+            row_data = {
+                "name": self.herb_table.item(r, 0).text() if self.herb_table.item(r, 0) else "",
+                "dose": self.herb_table.item(r, 1).text() if self.herb_table.item(r, 1) else "",
+                "remark": self.herb_table.item(r, 2).text() if self.herb_table.item(r, 2) else "",
+            }
+            if row_data["name"]:
                 herbs.append(row_data)
-
-        # 合并症状、舌、脉到 zhenghou 字段以保持兼容性
-        zhenghou_text = self.zhenghou.toPlainText()
-        if self.symptom_edit.toPlainText():
-            zhenghou_text += f"\n症状：{self.symptom_edit.toPlainText()}"
-        if self.tongue_edit.text():
-            zhenghou_text += f"\n舌象：{self.tongue_edit.text()}"
-        if self.pulse_edit.text():
-            zhenghou_text += f"\n脉象：{self.pulse_edit.text()}"
 
         return {
             "jian_method": self.jian_method.currentText(),
             "date": self.date_edit.text(),
-            "jieqi": self.jieqi_edit.text(),
-            "yunqi": self.yunqi_edit.text(),
             "patient_name": self.name_edit.text(),
             "gender": self.gender_edit.currentText(),
             "age": self.age_edit.value(),
             "phone": self.phone_edit.text(),
             "address": self.address_edit.text(),
-            "diagnosis_clinic": self.diagnosis_clinic.text(),
-            "zhengxing": self.zhengxing.text(),
-            "zhilaw": self.zhilaw.text(),
-            "diagnosis_western": self.diagnosis_western.text(),
-            "complaint": self.complaint.toPlainText(),
-            "symptoms": self.symptom_edit.toPlainText(),
+            "jieqi": self.jieqi_edit.text(),
+            "zhuyun": self.zhuyun_edit.text(),
+            "keyun": self.keyun_edit.text(),
+            "wuyun": self.wuyun_edit.text(),
+            "doctor": self.doctor_edit.text(),
+            "complaint": self.complaint_edit.text(),
+            "history": self.history_edit.text(),
             "tongue": self.tongue_edit.text(),
             "pulse": self.pulse_edit.text(),
-            "zhenghou": zhenghou_text,
+            "zhenghou": self.zhenghou_edit.text(),
+            "zhongyi_diagnosis": self.zhongyi_diagnosis.text(),
+            "zhongyi_bingji": self.zhongyi_bingji.text(),
+            "zhengxing": self.zhengxing_edit.text(),
+            "zhifa": self.zhifa_edit.text(),
+            "xiyi_diagnosis": self.xiyi_diagnosis.text(),
             "herbs": herbs,
-            "usage": self.usage_edit.toPlainText(),
-            "dose_count": self.dose_edit.text(),
-            "doctor": self.doctor_edit.text(),
-            "sign_date": self.sign_date.text(),
+            "dose_count": self.dose_count.text(),
+            "usage": self.usage_edit.text(),
         }
 
     def load_from_dict(self, data: dict):
         """从 dict 填充表单"""
+        self.jian_method.setCurrentText(data.get("jian_method", "自煎"))
+        self.date_edit.setText(data.get("date", QDate.currentDate().toString("yyyy-MM-dd")))
         self.name_edit.setText(data.get("patient_name", ""))
         self.gender_edit.setCurrentText(data.get("gender", "男"))
-        age_raw = str(data.get("age", "")).strip()
-        try:
-            age_val = int(age_raw) if age_raw.isdigit() else 0
-        except:
-            age_val = 0
+        
+        age_val = data.get("age", 0)
+        if isinstance(age_val, str):
+            age_val = int(age_val) if age_val.isdigit() else 0
         self.age_edit.setValue(age_val)
+        
         self.phone_edit.setText(data.get("phone", ""))
         self.address_edit.setText(data.get("address", ""))
-        self.diagnosis_clinic.setText(data.get("diagnosis_clinic", ""))
-        self.zhengxing.setText(data.get("zhengxing", ""))
-        self.zhilaw.setText(data.get("zhilaw", ""))
-        self.diagnosis_western.setText(data.get("diagnosis_western", ""))
-        self.complaint.setPlainText(data.get("complaint", ""))
-        
-        # 解析症状、舌、脉信息
-        self.symptom_edit.setPlainText(data.get("symptoms", ""))
+        self.jieqi_edit.setText(data.get("jieqi", ""))
+        self.zhuyun_edit.setText(data.get("zhuyun", ""))
+        self.keyun_edit.setText(data.get("keyun", ""))
+        self.wuyun_edit.setText(data.get("wuyun", ""))
+        self.doctor_edit.setText(data.get("doctor", ""))
+        self.complaint_edit.setText(data.get("complaint", ""))
+        self.history_edit.setText(data.get("history", ""))
         self.tongue_edit.setText(data.get("tongue", ""))
         self.pulse_edit.setText(data.get("pulse", ""))
-        
-        # 尝试从 zhenghou 中解析症状、舌、脉信息
-        zhenghou_text = data.get("zhenghou", "")
-        if zhenghou_text and not self.symptom_edit.toPlainText():
-            for line in zhenghou_text.split("\n"):
-                line = line.strip()
-                if line.startswith("症状："):
-                    self.symptom_edit.setPlainText(line[3:].strip())
-                elif line.startswith("舌象：") or line.startswith("舌："):
-                    self.tongue_edit.setText(line.split("：")[1].strip() if "：" in line else line)
-                elif line.startswith("脉象：") or line.startswith("脉："):
-                    self.pulse_edit.setText(line.split("：")[1].strip() if "：" in line else line)
-        
-        self.zhenghou.setPlainText(zhenghou_text)
+        self.zhenghou_edit.setText(data.get("zhenghou", ""))
+        self.zhongyi_diagnosis.setText(data.get("zhongyi_diagnosis", ""))
+        self.zhongyi_bingji.setText(data.get("zhongyi_bingji", ""))
+        self.zhengxing_edit.setText(data.get("zhengxing", ""))
+        self.zhifa_edit.setText(data.get("zhifa", ""))
+        self.xiyi_diagnosis.setText(data.get("xiyi_diagnosis", ""))
+        self.dose_count.setText(data.get("dose_count", "7 剂"))
+        self.usage_edit.setText(data.get("usage", "每日一剂，水煎服"))
 
+        # 加载药材
         herbs = data.get("herbs", [])
-        self.herb_table.setRowCount(len(herbs) or 9)
-        for r, row in enumerate(herbs):
-            for c, key in enumerate(["name", "dose", "remark"]):
-                self.herb_table.setItem(r, c, QTableWidgetItem(row.get(key, "")))
-
-        self.usage_edit.setPlainText(data.get("usage", ""))
-        self.dose_edit.setText(data.get("dose_count", ""))
-        self.doctor_edit.setText(data.get("doctor", "李玉贤"))
-        self.sign_date.setText(data.get("sign_date", QDate.currentDate().toString("yyyy-MM-dd")))
+        for r, row in enumerate(herbs[:12]):
+            self.herb_table.setItem(r, 0, QTableWidgetItem(row.get("name", "")))
+            self.herb_table.setItem(r, 1, QTableWidgetItem(row.get("dose", "")))
+            self.herb_table.setItem(r, 2, QTableWidgetItem(row.get("remark", "")))
