@@ -21,8 +21,7 @@ class LogConsole(QTextBrowser):
         self.document().setDefaultFont(QFont("Arial", 10))
         self.setStyleSheet("""
         QTextBrowser {
-            border: 1px solid #aaa;
-            background: #fafafa;
+            border: 1px solid palette(mid);
             padding: 4px;
         }
         """)
@@ -35,9 +34,9 @@ class LogConsole(QTextBrowser):
 
         color = {
             "ERROR": "red",
-            "WARN": "#cc8400",
-            "INFO": "#0066cc",
-        }.get(level, "black")
+            "WARN": "#e6a817",
+            "INFO": "#4da6ff",
+        }.get(level, "palette(window-text)")
 
         html = f'<span style="color:{color}"><b>[{ts}] [{level}]</b></span> {message}'
         self.append(html)

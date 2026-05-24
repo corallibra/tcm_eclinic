@@ -10,7 +10,10 @@ from collections import defaultdict
 import json
 import hashlib
 
-from src.core.database import db_manager
+try:
+    from src.core.database import db_manager
+except ImportError:
+    db_manager = None
 from src.core.user_manager import user_manager, doctor_manager
 from src.core.i18n import Language, i18n, get_text
 

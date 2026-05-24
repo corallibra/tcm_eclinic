@@ -13,7 +13,10 @@ import secrets
 import json
 import re
 
-from src.core.database import db_manager
+try:
+    from src.core.database import db_manager
+except ImportError:
+    db_manager = None
 from src.core.i18n import Language, i18n, get_text
 
 

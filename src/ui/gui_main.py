@@ -31,8 +31,10 @@ from src.ui.print_tab import PrintTab
 
 # ---- 业务逻辑层 ----
 from src.core import db, parse_docx
-from src.core import parse_docx
 from src.core.parse_docx import parse_word_case, parse_word_case_multi, import_cases_from_folder
+
+# ---- 日志模块 ----
+from logger import get_logger, QTextEditHandler
 
 # ---- PDF 打印层 ----
 from src.printing.pdf_template import generate_prescription_pdf
@@ -397,14 +399,16 @@ class SettingsTab(QWidget):
         else:
             QMessageBox.warning(self, "失败", "无法保存设置")
 
-from logger import get_logger, QTextEditHandler
-
 class MainWindow(QMainWindow):
-    """主窗口（整理版：无重复、结构清晰、保留全部功能）"""
+    """主窗口（支持数据库管理器 + 应用配置）"""
 
-    def __init__(self):
+    def __init__(self, db=None, app_config: dict = None):
+        # db: DatabaseManager 或类似对象（可选，用于 Word 导入功能扩展）
+        # app_config: 应用配置字典（可选，仅保留向后兼容）
         super().__init__()
-        self.setWindowTitle("李玉贤名医工作室电子病案系统")
+
+        # 保存传入的参数供外部使用
+        self.db_manager = db      # 数据库管理器实例
         self.resize(1200, 800)
 
         # ======================================================

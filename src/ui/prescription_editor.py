@@ -97,10 +97,15 @@ class PrescriptionEditor(QWidget):
 
         row1 = QHBoxLayout()
         self.jian_method = QComboBox()
-        self.jian_method.addItems(["自煎", "院煎"])
+        self.jian_method.addItems(["自煎", "院煎", "膏方"])
+        self.dosage_form = QComboBox()
+        self.dosage_form.addItems(["颗粒剂", "饮片"])
+        self.dosage_form.currentTextChanged.connect(self._on_dosage_form_changed)
         self.date_edit = QLineEdit(QDate.currentDate().toString("yyyy-MM-dd"))
         row1.addWidget(QLabel("煎药方式："))
         row1.addWidget(self.jian_method)
+        row1.addWidget(QLabel("剂型："))
+        row1.addWidget(self.dosage_form)
         row1.addWidget(QLabel("日期："))
         row1.addWidget(self.date_edit)
         basic_layout.addRow(row1)
@@ -283,6 +288,7 @@ class PrescriptionEditor(QWidget):
         layout.addStretch()
 
         self._connect_signals()
+        self._on_dosage_form_changed("颗粒剂")
 
     def _connect_signals(self):
         for w in [self.name_edit, self.phone_edit, self.address_edit,
@@ -318,6 +324,15 @@ class PrescriptionEditor(QWidget):
         self.zaiquan_edit.setText(wuyun.get("zaiquan", ""))
         self.data_changed.emit()
 
+    def _on_dosage_form_changed(self, form_text):
+        if form_text == "颗粒剂":
+            self.jian_method.clear()
+            self.jian_method.addItem("免煎")
+        else:
+            self.jian_method.clear()
+            self.jian_method.addItems(["自煎", "院煎", "膏方"])
+        self.data_changed.emit()
+
     def to_dict(self):
         herbs = []
         for r in range(self.herb_table.rowCount()):
@@ -331,6 +346,7 @@ class PrescriptionEditor(QWidget):
 
         return {
             "jian_method": self.jian_method.currentText(),
+            "dosage_form": self.dosage_form.currentText(),
             "date": self.date_edit.text(),
             "lunar": self.lunar_edit.text(),
             "patient_name": self.name_edit.text(),
@@ -363,6 +379,10 @@ class PrescriptionEditor(QWidget):
 
     def load_from_dict(self, data: dict):
         self.herb_table.blockSignals(True)
+        self.dosage_form.blockSignals(True)
+        self.dosage_form.setCurrentText(data.get("dosage_form", "颗粒剂"))
+        self.dosage_form.blockSignals(False)
+        self._on_dosage_form_changed(data.get("dosage_form", "颗粒剂"))
         self.jian_method.setCurrentText(data.get("jian_method", "自煎"))
         self.date_edit.setText(data.get("date", QDate.currentDate().toString("yyyy-MM-dd")))
         if "lunar" in data and data.get("lunar"):

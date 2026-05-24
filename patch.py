@@ -13,7 +13,7 @@ from pathlib import Path
 import re
 import compileall
 
-ROOT = Path("D:/projects/tcm_eclinic")
+ROOT = Path(__file__).resolve().parent
 GUI_FILE = ROOT / "src" / "ui" / "gui_main.py"
 
 if not GUI_FILE.exists():

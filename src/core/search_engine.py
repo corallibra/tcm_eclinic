@@ -11,7 +11,12 @@ from enum import Enum
 import json
 import re
 
-from src.core.database import db_manager, prescription_model, patient_model
+try:
+    from src.core.database import db_manager, prescription_model, patient_model
+except ImportError:
+    db_manager = None
+    prescription_model = None
+    patient_model = None
 from src.core.i18n import Language, i18n, get_text
 
 

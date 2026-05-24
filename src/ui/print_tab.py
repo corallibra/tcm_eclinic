@@ -93,13 +93,13 @@ class PrescriptionPreview(QWidget):
         layout.setContentsMargins(5, 5, 5, 5)
 
         title_label = QLabel("处方预览")
-        title_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #666; padding: 2px;")
+        title_label.setStyleSheet("font-weight: bold; font-size: 12px; color: palette(window-text); padding: 2px;")
 
         self.browser = QTextBrowser()
         self.browser.setReadOnly(True)
         self.browser.setOpenExternalLinks(False)
         self.browser.setStyleSheet(
-            "QTextBrowser { background-color: white; border: 1px solid #ccc; padding: 8px; }"
+            "QTextBrowser { border: 1px solid palette(mid); padding: 8px; }"
         )
 
         layout.addWidget(title_label)
@@ -133,8 +133,9 @@ class PrescriptionPreview(QWidget):
                     margin-bottom: 8px;
                 }}
                 .divider {{
-                    border-top: 1px solid #333;
+                    border-top: 1px solid currentColor;
                     margin: 6px 0;
+                    opacity: 0.3;
                 }}
                 .herb-grid {{
                     display: flex;
@@ -176,7 +177,7 @@ class PrescriptionPreview(QWidget):
             <table>
                 <tr>
                     <td class="left-label">医案编号：{prescription_code}</td>
-                    <td class="right-value"></td>
+                    <td class="left-label">剂型：{dosage_form}</td>
                     <td class="right-value"></td>
                     <td style="text-align: right;">日期：{date}</td>
                 </tr>
@@ -247,6 +248,7 @@ class PrescriptionPreview(QWidget):
         """.format(
             prescription_code=v('prescription_code', '00001'),
             date=v('date', ''),
+            dosage_form=v('dosage_form', '颗粒剂'),
             patient_name=v('patient_name', '______'),
             gender=v('gender', '______'),
             age=v('age', '______'),

@@ -10,7 +10,11 @@ from collections import Counter
 import json
 import re
 
-from src.core.database import db_manager, prescription_model
+try:
+    from src.core.database import db_manager, prescription_model
+except ImportError:
+    db_manager = None
+    prescription_model = None
 from src.core.i18n import Language, i18n, get_text
 
 

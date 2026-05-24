@@ -10,7 +10,11 @@ from dataclasses import dataclass, field
 import json
 
 from src.core.i18n import Language, i18n, get_text
-from src.core.database import prescription_model, patient_model
+try:
+    from src.core.database import prescription_model, patient_model
+except ImportError:
+    prescription_model = None
+    patient_model = None
 
 
 @dataclass

@@ -32,7 +32,7 @@ except Exception as e:
 # --------------------------
 #  路径 / 数据库
 # --------------------------
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DB_PATH = os.path.join(BASE_DIR, "data", "eclinic.db")
 
 # --------------------------
@@ -69,8 +69,7 @@ class SimilarityStrip(QTextBrowser):
 
         self.setStyleSheet("""
         QTextBrowser {
-            border: 1px solid #d0d7de;
-            background: #fbfbfb;
+            border: 1px solid palette(mid);
             padding: 3px;
         }
         """)
