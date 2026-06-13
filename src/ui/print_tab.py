@@ -145,6 +145,25 @@ class PrescriptionPreview(QWidget):
                 .herb-item {{
                     min-width: 80px;
                 }}
+                .herb-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    table-layout: fixed;
+                }}
+                .herb-table td {{
+                    padding: 2px 6px;
+                    vertical-align: top;
+                    width: 33.33%;
+                }}
+                .herb-cell {{
+                    position: relative;
+                    display: inline-block;
+                }}
+                .herb-remark {{
+                    font-size: 9px;
+                    vertical-align: super;
+                    color: #666;
+                }}
                 .usage {{
                     text-align: center;
                     margin-top: 6px;
@@ -243,7 +262,10 @@ class PrescriptionPreview(QWidget):
 
             <div class="divider"></div>
 
-            <div class="herb-grid">{herbs}</div>
+            <table>
+                <tr><td class="left-label" style="font-weight:bold;">方药：</td></tr>
+            </table>
+            <table class="herb-table">{herbs}</table>
 
             <div class="usage">{dose_count} {usage}</div>
 
@@ -302,15 +324,34 @@ class PrescriptionPreview(QWidget):
                 '</table>')
 
     def _format_herbs(self, herbs):
+        """3列固定排版：一行三味，每味药名后跟剂量，特殊用法角标右上角。最多36味（12行）."""
         if not herbs:
-            return ""
-        items = []
+            return '<tr><td class="herb-cell">—</td><td></td><td></td></tr>'
+        cells = []
         for herb in herbs:
-            text = f"{herb.get('name', '')} {herb.get('dose', '')}g"
-            if herb.get('remark'):
-                text += f"（{herb.get('remark')}）"
-            items.append(f'<span class="herb-item">{text}</span>')
-        return "    ".join(items)
+            name = herb.get('name', '')
+            dose = herb.get('dose', '')
+            remark = herb.get('remark', '')
+            cell = f'<span class="herb-cell">{name} {dose}g'
+            if remark:
+                cell += f'<span class="herb-remark">{remark}</span>'
+            cell += '</span>'
+            cells.append(cell)
+        # 最多36味
+        cells = cells[:36]
+        # 补空到3的倍数
+        while len(cells) % 3 != 0:
+            cells.append('<span class="herb-cell"></span>')
+        rows_html = []
+        for i in range(0, len(cells), 3):
+            rows_html.append(
+                '<tr>'
+                f'<td>{cells[i]}</td>'
+                f'<td>{cells[i+1] if i+1 < len(cells) else ""}</td>'
+                f'<td>{cells[i+2] if i+2 < len(cells) else ""}</td>'
+                '</tr>'
+            )
+        return '\n'.join(rows_html)
 
 
 class PrintTab(QWidget):
