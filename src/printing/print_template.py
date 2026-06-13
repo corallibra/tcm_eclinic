@@ -47,6 +47,18 @@ def render_prescription_pdf(data: dict, pdf_path: str):
 
     story.append(p("主诉：", data.get("complaint","")))
     story.append(Spacer(1, 2))
+    story.append(p("现病史：", data.get("history","")))
+    story.append(Spacer(1, 2))
+    past = data.get("past_history","")
+    if past:
+        story.append(p("既往史：", past))
+        story.append(Spacer(1, 2))
+    exams = data.get("examinations", [])
+    if exams:
+        story.append(p("辅助检查：", ""))
+        for ex in exams:
+            story.append(Paragraph(f"  {ex.get('type','')}（{ex.get('date','')}）：{ex.get('summary','')}", styles['BodyText']))
+        story.append(Spacer(1, 2))
     story.append(p("舌脉：", data.get("tongue_pulse","")))
     story.append(Spacer(1, 2))
     story.append(p("证候：", data.get("zhenghou","")))

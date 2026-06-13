@@ -7,11 +7,14 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QLineEdit, QTextEdit, QComboBox, QSpinBox,
     QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox,
-    QSizePolicy
+    QSizePolicy, QPushButton, QFrame, QFileDialog, QDialog,
+    QScrollArea, QMessageBox
 )
 from PyQt6.QtCore import Qt, QDate, pyqtSignal
+from PyQt6.QtGui import QPixmap
 from typing import Union
 import datetime
+import os
 from lunar_python import Lunar, Solar
 
 SOLAR_TERMS = [
@@ -203,6 +206,9 @@ class PrescriptionEditor(QWidget):
         self.history_edit = QLineEdit()
         diag_layout.addLayout(make_row("现病史：", self.history_edit))
 
+        self.past_history_edit = QLineEdit()
+        diag_layout.addLayout(make_row("既往史：", self.past_history_edit))
+
         tp_row = QHBoxLayout()
         lbl1 = QLabel("舌像：")
         lbl1.setFixedWidth(LABEL_W)
@@ -257,6 +263,48 @@ class PrescriptionEditor(QWidget):
         self.xiyi_diagnosis = QLineEdit()
         diag_layout.addLayout(make_row("西医诊断：", self.xiyi_diagnosis))
 
+        # ======== 二点五、辅助检查（可折叠） ========
+        self.exam_box = QGroupBox("辅助检查")
+        exam_outer = QVBoxLayout(self.exam_box)
+        exam_outer.setContentsMargins(6, 4, 6, 4)
+
+        # 标题栏：展开/收起按钮
+        exam_header = QHBoxLayout()
+        self.exam_toggle_btn = QPushButton("展开 ▼")
+        self.exam_toggle_btn.setFixedWidth(80)
+        self.exam_toggle_btn.setStyleSheet("QPushButton { text-align: left; border: none; padding: 2px 6px; }")
+        self.exam_toggle_btn.clicked.connect(self._toggle_exam)
+        exam_header.addWidget(self.exam_toggle_btn)
+        exam_header.addStretch()
+        exam_outer.addLayout(exam_header)
+
+        # 检查列表容器（初始隐藏）
+        self.exam_content = QFrame()
+        self.exam_content.setVisible(False)
+        exam_content_layout = QVBoxLayout(self.exam_content)
+        exam_content_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.exam_entries = []  # list of dicts: {type_combo, date_edit, summary_edit, image_path, thumbnail_btn, row_widget}
+        self.exam_scroll = QScrollArea()
+        self.exam_scroll.setWidgetResizable(True)
+        self.exam_scroll.setMaximumHeight(200)
+        self.exam_list_widget = QWidget()
+        self.exam_list_layout = QVBoxLayout(self.exam_list_widget)
+        self.exam_list_layout.setContentsMargins(0, 0, 0, 0)
+        self.exam_list_layout.addStretch()
+        self.exam_scroll.setWidget(self.exam_list_widget)
+        exam_content_layout.addWidget(self.exam_scroll)
+
+        # 添加检查按钮
+        exam_btn_row = QHBoxLayout()
+        self.add_exam_btn = QPushButton("+ 添加检查项目")
+        self.add_exam_btn.clicked.connect(self._add_exam_entry)
+        exam_btn_row.addWidget(self.add_exam_btn)
+        exam_btn_row.addStretch()
+        exam_content_layout.addLayout(exam_btn_row)
+
+        exam_outer.addWidget(self.exam_content)
+
         # ======== 三、中药处方 ========
         herb_box = QGroupBox("中药处方")
         herb_layout = QVBoxLayout(herb_box)
@@ -284,6 +332,7 @@ class PrescriptionEditor(QWidget):
 
         layout.addWidget(basic_box)
         layout.addWidget(diag_box)
+        layout.addWidget(self.exam_box)
         layout.addWidget(herb_box)
         layout.addStretch()
 
@@ -293,7 +342,7 @@ class PrescriptionEditor(QWidget):
     def _connect_signals(self):
         for w in [self.name_edit, self.phone_edit, self.address_edit,
                   self.date_edit, self.jieqi_time_edit,
-                  self.complaint_edit, self.history_edit,
+                  self.complaint_edit, self.history_edit, self.past_history_edit,
                   self.tongue_edit, self.pulse_edit,
                   self.zhenghou_edit, self.zhongyi_diagnosis,
                   self.zhongyi_bingji, self.zhengxing_edit,
@@ -323,6 +372,105 @@ class PrescriptionEditor(QWidget):
         self.zhuqi_edit.setText(wuyun.get("zhuqi", ""))
         self.zaiquan_edit.setText(wuyun.get("zaiquan", ""))
         self.data_changed.emit()
+
+    def _toggle_exam(self):
+        visible = not self.exam_content.isVisible()
+        self.exam_content.setVisible(visible)
+        self.exam_toggle_btn.setText("收起 ▲" if visible else "展开 ▼")
+
+    def _add_exam_entry(self, exam_data=None):
+        exam_data = exam_data or {}
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(0, 2, 0, 2)
+
+        type_combo = QComboBox()
+        type_combo.addItems(["心电图", "血常规", "生化检查", "CT", "超声", "X光", "核磁共振", "其他"])
+        type_combo.setCurrentText(exam_data.get("type", "心电图"))
+        type_combo.currentTextChanged.connect(self.data_changed.emit)
+
+        date_edit = QLineEdit(exam_data.get("date", ""))
+        date_edit.setPlaceholderText("日期")
+        date_edit.setMaximumWidth(110)
+        date_edit.textChanged.connect(self.data_changed.emit)
+
+        summary_edit = QLineEdit(exam_data.get("summary", ""))
+        summary_edit.setPlaceholderText("检查结果概要…")
+        summary_edit.textChanged.connect(self.data_changed.emit)
+
+        thumbnail_btn = QPushButton("图片")
+        thumbnail_btn.setFixedWidth(50)
+        btn_remove = QPushButton("✕")
+        btn_remove.setFixedWidth(30)
+
+        image_path = exam_data.get("image_path", "")
+        entry = {
+            "type_combo": type_combo,
+            "date_edit": date_edit,
+            "summary_edit": summary_edit,
+            "image_path": image_path,
+            "thumbnail_btn": thumbnail_btn,
+            "btn_remove": btn_remove,
+            "row_widget": row_widget,
+        }
+        self.exam_entries.append(entry)
+
+        # Connect thumbnail button to image viewer
+        thumbnail_btn.clicked.connect(lambda checked, e=entry: self._show_exam_image(e))
+        btn_remove.clicked.connect(lambda checked, e=entry: self._remove_exam_entry(e))
+
+        row_layout.addWidget(QLabel("类型："))
+        row_layout.addWidget(type_combo)
+        row_layout.addWidget(QLabel("日期："))
+        row_layout.addWidget(date_edit)
+        row_layout.addWidget(summary_edit)
+        row_layout.addWidget(thumbnail_btn)
+        row_layout.addWidget(btn_remove)
+
+        # Insert before the stretch
+        idx = self.exam_list_layout.count() - 1
+        self.exam_list_layout.insertWidget(idx, row_widget)
+        self.data_changed.emit()
+
+    def _remove_exam_entry(self, entry):
+        self.exam_list_layout.removeWidget(entry["row_widget"])
+        entry["row_widget"].deleteLater()
+        self.exam_entries.remove(entry)
+        self.data_changed.emit()
+
+    def _show_exam_image(self, entry):
+        current_path = entry.get("image_path", "")
+        file, _ = QFileDialog.getOpenFileName(
+            self, "选择检查图片", current_path or "",
+            "图片文件 (*.png *.jpg *.jpeg *.bmp *.tiff *.webp)"
+        )
+        if not file:
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle("辅助检查图片")
+        dlg.setMinimumSize(500, 400)
+        layout = QVBoxLayout(dlg)
+
+        scroll = QScrollArea()
+        pixmap = QPixmap(file)
+        if pixmap.isNull():
+            QMessageBox.warning(self, "错误", "无法加载图片")
+            return
+        img_label = QLabel()
+        max_w = 700
+        if pixmap.width() > max_w:
+            pixmap = pixmap.scaledToWidth(max_w, Qt.TransformationMode.SmoothTransformation)
+        img_label.setPixmap(pixmap)
+        img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        scroll.setWidget(img_label)
+        layout.addWidget(scroll)
+
+        btn_close = QPushButton("关闭")
+        btn_close.clicked.connect(dlg.accept)
+        layout.addWidget(btn_close)
+
+        entry["image_path"] = file
+        dlg.exec()
 
     def _on_dosage_form_changed(self, form_text):
         if form_text == "颗粒剂":
@@ -364,6 +512,7 @@ class PrescriptionEditor(QWidget):
             "doctor": self.doctor_edit.text(),
             "complaint": self.complaint_edit.text(),
             "history": self.history_edit.text(),
+            "past_history": self.past_history_edit.text(),
             "tongue": self.tongue_edit.text(),
             "pulse": self.pulse_edit.text(),
             "zhenghou": self.zhenghou_edit.text(),
@@ -373,9 +522,27 @@ class PrescriptionEditor(QWidget):
             "zhifa": self.zhifa_edit.text(),
             "xiyi_diagnosis": self.xiyi_diagnosis.text(),
             "herbs": herbs,
+            "examinations": self._get_examinations(),
             "dose_count": self.dose_count.text(),
             "usage": self.usage_edit.text(),
         }
+
+    def _clear_exam_entries(self):
+        for entry in list(self.exam_entries):
+            self.exam_list_layout.removeWidget(entry["row_widget"])
+            entry["row_widget"].deleteLater()
+        self.exam_entries.clear()
+
+    def _get_examinations(self):
+        result = []
+        for entry in self.exam_entries:
+            result.append({
+                "type": entry["type_combo"].currentText(),
+                "date": entry["date_edit"].text(),
+                "summary": entry["summary_edit"].text(),
+                "image_path": entry.get("image_path", ""),
+            })
+        return result
 
     def load_from_dict(self, data: dict):
         self.herb_table.blockSignals(True)
@@ -407,6 +574,7 @@ class PrescriptionEditor(QWidget):
         self.doctor_edit.setText(data.get("doctor", ""))
         self.complaint_edit.setText(data.get("complaint", ""))
         self.history_edit.setText(data.get("history", ""))
+        self.past_history_edit.setText(data.get("past_history", ""))
         self.tongue_edit.setText(data.get("tongue", ""))
         self.pulse_edit.setText(data.get("pulse", ""))
         self.zhenghou_edit.setText(data.get("zhenghou", ""))
@@ -415,6 +583,10 @@ class PrescriptionEditor(QWidget):
         self.zhengxing_edit.setText(data.get("zhengxing", ""))
         self.zhifa_edit.setText(data.get("zhifa", ""))
         self.xiyi_diagnosis.setText(data.get("xiyi_diagnosis", ""))
+        # Load examinations
+        self._clear_exam_entries()
+        for exam in data.get("examinations", []):
+            self._add_exam_entry(exam)
         self.dose_count.setText(data.get("dose_count", "7 剂"))
         self.usage_edit.setText(data.get("usage", "每日一剂，水煎服"))
         herbs = data.get("herbs", [])

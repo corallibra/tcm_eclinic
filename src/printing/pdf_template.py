@@ -44,6 +44,23 @@ def generate_prescription_pdf(data, out_path, paper="C6"):
     y -= 8 * mm
     c.drawString(15 * mm, y, f"主诉：{data.get('complaint','')}")
     y -= 8 * mm
+    c.drawString(15 * mm, y, f"现病史：{data.get('history','')}")
+    y -= 8 * mm
+    past = data.get('past_history','')
+    if past:
+        c.drawString(15 * mm, y, f"既往史：{past}")
+        y -= 8 * mm
+    exams = data.get("examinations", [])
+    if exams:
+        c.drawString(15 * mm, y, "辅助检查：")
+        y -= 5 * mm
+        c.setFont("Helvetica", 7)
+        for ex in exams:
+            text = f"  {ex.get('type','')}（{ex.get('date','')}）：{ex.get('summary','')}"
+            c.drawString(18 * mm, y, text)
+            y -= 4 * mm
+        c.setFont("Helvetica", 9)
+        y -= 2 * mm
     c.drawString(15 * mm, y, f"症状舌脉：{data.get('zhenghou','')}")
     y -= 10 * mm
 

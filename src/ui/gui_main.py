@@ -9,12 +9,12 @@ import logging
 import re
 
 from PyQt6.QtCore import Qt, QTimer, QSize
-from PyQt6.QtGui import QAction, QIcon, QFont, QTextOption
+from PyQt6.QtGui import QAction, QIcon, QFont, QTextOption, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QTextBrowser, QTextEdit, QTabWidget, QFileDialog, QMessageBox, QLineEdit, QPushButton,
-    QLabel, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox, 
-    QProgressBar
+    QLabel, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox,
+    QProgressBar, QMenu
 )
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -445,7 +445,7 @@ class MainWindow(QMainWindow):
 
         self.tabs.addTab(self.tab_print, "处方编辑与打印")
         self.tabs.addTab(self.tab_query, "医案查询检索")
-        self.tabs.addTab(self.tab_stats, "数据统计分析（占位版）")
+        self.tabs.addTab(self.tab_stats, "数据统计分析")
         self.tabs.addTab(self.tab_cloud, "方药词云分析")
         self.tabs.addTab(self.tab_settings, "系统设置")
 
@@ -486,15 +486,217 @@ class MainWindow(QMainWindow):
     # ==========================================================
     def _build_menu(self):
         bar = self.menuBar()
-        menu_file = bar.addMenu("文件")
 
-        act_import = QAction("批量导入病例", self)
-        act_import.triggered.connect(self.do_import_cases)
-        menu_file.addAction(act_import)
+        # ── 文件 ──
+        menu_file = bar.addMenu("文件(&F)")
 
-        act_exit = QAction("退出", self)
+        act_new = QAction("新建处方(&N)", self)
+        act_new.setShortcut(QKeySequence.StandardKey.New)
+        act_new.triggered.connect(self._menu_file_new)
+        menu_file.addAction(act_new)
+
+        act_open = QAction("打开处方(&O)", self)
+        act_open.setShortcut(QKeySequence.StandardKey.Open)
+        act_open.triggered.connect(self._menu_file_open)
+        menu_file.addAction(act_open)
+
+        # 打开最近（预留）
+        self.menu_recent = QMenu("打开最近(&R)", self)
+        self.menu_recent.setEnabled(False)  # 暂无最近文件功能
+        menu_file.addMenu(self.menu_recent)
+
+        menu_file.addSeparator()
+
+        act_save = QAction("保存(&S)", self)
+        act_save.setShortcut(QKeySequence.StandardKey.Save)
+        act_save.triggered.connect(self._menu_file_save)
+        menu_file.addAction(act_save)
+
+        act_save_as = QAction("另存为/导出PDF(&E)", self)
+        act_save_as.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        act_save_as.triggered.connect(self._menu_file_export)
+        menu_file.addAction(act_save_as)
+
+        menu_file.addSeparator()
+
+        act_import_word = QAction("导入Word医案...", self)
+        act_import_word.triggered.connect(self._menu_file_import_word)
+        menu_file.addAction(act_import_word)
+
+        act_import_batch = QAction("批量导入病例...", self)
+        act_import_batch.setShortcut(QKeySequence("Ctrl+Shift+I"))
+        act_import_batch.triggered.connect(self.do_import_cases)
+        menu_file.addAction(act_import_batch)
+
+        menu_file.addSeparator()
+
+        act_print = QAction("打印预览(&P)", self)
+        act_print.setShortcut(QKeySequence.StandardKey.Print)
+        act_print.triggered.connect(self._menu_file_print)
+        menu_file.addAction(act_print)
+
+        menu_file.addSeparator()
+
+        act_exit = QAction("退出(&Q)", self)
+        act_exit.setShortcut(QKeySequence("Ctrl+Q"))
         act_exit.triggered.connect(self.close)
         menu_file.addAction(act_exit)
+
+        # ── 编辑 ──
+        menu_edit = bar.addMenu("编辑(&E)")
+
+        self._act_undo = QAction("撤销(&U)", self)
+        self._act_undo.setShortcut(QKeySequence.StandardKey.Undo)
+        self._act_undo.setEnabled(False)  # 预留
+        menu_edit.addAction(self._act_undo)
+
+        self._act_redo = QAction("重做(&R)", self)
+        self._act_redo.setShortcut(QKeySequence.StandardKey.Redo)
+        self._act_redo.setEnabled(False)  # 预留
+        menu_edit.addAction(self._act_redo)
+
+        menu_edit.addSeparator()
+
+        self._act_select_all = QAction("全选(&A)", self)
+        self._act_select_all.setShortcut(QKeySequence.StandardKey.SelectAll)
+        self._act_select_all.setEnabled(False)  # 预留
+        menu_edit.addAction(self._act_select_all)
+
+        self._act_find = QAction("查找/替换(&F)...", self)
+        self._act_find.setShortcut(QKeySequence.StandardKey.Find)
+        self._act_find.setEnabled(False)  # 预留
+        menu_edit.addAction(self._act_find)
+
+        # ── 视图 ──
+        menu_view = bar.addMenu("视图(&V)")
+
+        act_toggle_log = QAction("显示/隐藏日志控制台", self)
+        act_toggle_log.setCheckable(True)
+        act_toggle_log.setChecked(True)
+        act_toggle_log.triggered.connect(self._menu_view_toggle_log)
+        menu_view.addAction(act_toggle_log)
+
+        menu_view.addSeparator()
+
+        tab_labels = [
+            ("处方编辑与打印", 0),
+            ("医案查询检索", 1),
+            ("数据统计分析", 2),
+            ("方药词云分析", 3),
+            ("系统设置", 4),
+        ]
+        for label, idx in tab_labels:
+            act = QAction(label, self)
+            act.triggered.connect(lambda checked, i=idx: self.tabs.setCurrentIndex(i))
+            menu_view.addAction(act)
+
+        # ── 工具 ──
+        menu_tools = bar.addMenu("工具(&T)")
+
+        act_similar = QAction("相似病案计算", self)
+        act_similar.triggered.connect(self._menu_tools_similar)
+        menu_tools.addAction(act_similar)
+
+        act_cloud = QAction("生成方药词云", self)
+        act_cloud.triggered.connect(self._menu_tools_cloud)
+        menu_tools.addAction(act_cloud)
+
+        menu_tools.addSeparator()
+
+        act_backup = QAction("数据库备份...", self)
+        act_backup.setEnabled(False)  # 预留
+        menu_tools.addAction(act_backup)
+
+        menu_tools.addSeparator()
+
+        act_settings = QAction("系统设置", self)
+        act_settings.triggered.connect(lambda: self.tabs.setCurrentIndex(4))
+        menu_tools.addAction(act_settings)
+
+        # ── 帮助 ──
+        menu_help = bar.addMenu("帮助(&H)")
+
+        act_manual = QAction("用户手册", self)
+        act_manual.setEnabled(False)  # 预留
+        menu_help.addAction(act_manual)
+
+        act_about = QAction("关于", self)
+        act_about.triggered.connect(self._menu_help_about)
+        menu_help.addAction(act_about)
+
+    # ── 菜单动作实现 ──
+
+    def _get_print_tab(self):
+        """获取处方编辑标签页"""
+        return self.tab_print
+
+    def _menu_file_new(self):
+        """新建处方：清空编辑器"""
+        self.tabs.setCurrentIndex(0)
+        editor = self._get_print_tab().editor
+        editor.load_from_dict({})
+        self.log_console.push_message("已新建空白处方")
+
+    def _menu_file_open(self):
+        """打开处方：切换到查询页让用户搜索后选择"""
+        self.tabs.setCurrentIndex(1)
+        self.log_console.push_message("请在医案查询检索页搜索并选择患者")
+
+    def _menu_file_save(self):
+        """保存处方到数据库"""
+        self.tabs.setCurrentIndex(0)
+        try:
+            data = self._get_print_tab().get_prescription_data()
+            if not data.get("patient_name"):
+                QMessageBox.information(self, "提示", "请先填写患者信息")
+                return
+            cid = db.save_prescription(data)
+            self.log_console.push_message(f"已保存处方（ID={cid}）")
+        except Exception as e:
+            self.log_console.push_message(f"保存失败：{e}")
+
+    def _menu_file_export(self):
+        """导出处方为PDF"""
+        self.tabs.setCurrentIndex(0)
+        self._get_print_tab().export_and_print()
+
+    def _menu_file_import_word(self):
+        """导入单个Word医案"""
+        self.tabs.setCurrentIndex(0)
+        self._get_print_tab().load_docx()
+
+    def _menu_file_print(self):
+        """打印预览"""
+        self.tabs.setCurrentIndex(0)
+        self._get_print_tab().make_preview()
+
+    def _menu_view_toggle_log(self, visible):
+        """显示/隐藏日志控制台"""
+        self.log_console.setVisible(visible)
+
+    def _menu_tools_similar(self):
+        """相似病案计算"""
+        self.tabs.setCurrentIndex(0)
+        self._get_print_tab().calc_similarity()
+
+    def _menu_tools_cloud(self):
+        """生成方药词云"""
+        self.tabs.setCurrentIndex(3)
+        if hasattr(self.tab_cloud, "make_cloud"):
+            self.tab_cloud.make_cloud()
+
+    @staticmethod
+    def _menu_help_about():
+        """关于对话框"""
+        QMessageBox.about(
+            None,
+            "关于 TCM eClinic",
+            "<h3>TCM eClinic v2.0</h3>"
+            "<p>中医门诊处方处理平台</p>"
+            "<p>功能：处方编辑、医案检索、数据统计、方药词云</p>"
+            "<hr>"
+            "<p>Powered by PyQt6</p>"
+        )
 
     # ==========================================================
     #  批量导入（线程执行）

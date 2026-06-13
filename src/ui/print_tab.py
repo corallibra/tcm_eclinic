@@ -214,6 +214,9 @@ class PrescriptionPreview(QWidget):
                     <td class="left-label">现病史：{history}</td>
                 </tr>
                 <tr>
+                    <td class="left-label">既往史：{past_history}</td>
+                </tr>
+                <tr>
                     <td class="left-label">舌像：{tongue}</td>
                     <td class="left-label">脉象：{pulse}</td>
                     <td colspan="2"></td>
@@ -235,6 +238,8 @@ class PrescriptionPreview(QWidget):
                     <td class="left-label">西医诊断：{xiyi_diagnosis}</td>
                 </tr>
             </table>
+
+            {exam_section}
 
             <div class="divider"></div>
 
@@ -263,6 +268,7 @@ class PrescriptionPreview(QWidget):
             zaiquan=v('zaiquan', ''),
             complaint=v('complaint', '________________________'),
             history=v('history', '________________________'),
+            past_history=v('past_history', '________________________'),
             tongue=v('tongue', '________'),
             pulse=v('pulse', '________'),
             zhenghou=v('zhenghou', '________________________'),
@@ -271,6 +277,7 @@ class PrescriptionPreview(QWidget):
             zhengxing=v('zhengxing', '________'),
             zhifa=v('zhifa', '________'),
             xiyi_diagnosis=v('xiyi_diagnosis', '____________________'),
+            exam_section=self._format_examinations(data.get('examinations', [])),
             herbs=self._format_herbs(data.get('herbs', [])),
             dose_count=v('dose_count', ''),
             usage=v('usage', ''),
@@ -278,6 +285,21 @@ class PrescriptionPreview(QWidget):
         )
 
         self.browser.setHtml(html)
+
+    def _format_examinations(self, examinations):
+        if not examinations:
+            return ""
+        rows = []
+        for exam in examinations:
+            t = exam.get("type", "")
+            d = exam.get("date", "")
+            s = exam.get("summary", "")
+            img = " 📎" if exam.get("image_path") else ""
+            rows.append(f'<tr><td class="right-value">● {t}（{d}）：{s}{img}</td></tr>')
+        return ('<div class="divider"></div>'
+                '<table><tr><td class="left-label" style="font-weight:bold;">辅助检查：</td></tr>'
+                + "".join(rows) +
+                '</table>')
 
     def _format_herbs(self, herbs):
         if not herbs:
@@ -315,6 +337,19 @@ class PrintTab(QWidget):
         btn_save_db = QPushButton("保存到数据库")
         btn_export = QPushButton("导出并打印")
 
+        btn_new.clicked.connect(self._new_prescription)
+        btn_open.clicked.connect(self._open_prescription)
+        btn_save.clicked.connect(self.save_to_db)
+        btn_print.clicked.connect(self.make_preview)
+        btn_as_template.clicked.connect(self._save_as_template)
+        # btn_log / btn_stat — reserved for future use
+
+        btn_load_docx.clicked.connect(self.load_docx)
+        btn_similar.clicked.connect(self.calc_similarity)
+        btn_preview.clicked.connect(self.make_preview)
+        btn_save_db.clicked.connect(self.save_to_db)
+        btn_export.clicked.connect(self.export_and_print)
+
         toolbar.addWidget(btn_new)
         toolbar.addWidget(btn_open)
         toolbar.addWidget(btn_save)
@@ -328,12 +363,6 @@ class PrintTab(QWidget):
         toolbar.addWidget(btn_preview)
         toolbar.addWidget(btn_save_db)
         toolbar.addWidget(btn_export)
-
-        btn_load_docx.clicked.connect(self.load_docx)
-        btn_similar.clicked.connect(self.calc_similarity)
-        btn_preview.clicked.connect(self.make_preview)
-        btn_save_db.clicked.connect(self.save_to_db)
-        btn_export.clicked.connect(self.export_and_print)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
@@ -369,6 +398,67 @@ class PrintTab(QWidget):
     def _refresh_preview(self):
         data = self.get_prescription_data()
         self.preview.update_preview(data)
+
+    def _new_prescription(self):
+        """新建空白处方"""
+        self.editor.load_from_dict({})
+        self.status_label.setText("已新建空白处方")
+        self.log_console.push_message("已新建空白处方")
+
+    def _open_prescription(self):
+        """打开处方：从数据库选择已有病历"""
+        # 搜索所有病例，弹出选择对话框
+        try:
+            all_cases = db.get_all_cases()
+        except Exception as e:
+            self.log_console.push_message(f"❌ 无法检索病例：{e}")
+            return
+        if not all_cases:
+            QMessageBox.information(self, "提示", "数据库中暂无病例，请先导入或创建处方")
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle("打开已有处方")
+        dlg.resize(600, 400)
+        layout = QVBoxLayout(dlg)
+        table = QTableWidget(0, 4)
+        table.setHorizontalHeaderLabels(["ID", "姓名", "日期", "主诉"])
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        # 按日期降序排列
+        sorted_cases = sorted(all_cases, key=lambda r: r.get("date", ""), reverse=True)
+        for rec in sorted_cases:
+            row = table.rowCount()
+            table.insertRow(row)
+            table.setItem(row, 0, QTableWidgetItem(str(rec.get("id", ""))))
+            table.setItem(row, 1, QTableWidgetItem(rec.get("patient_name", rec.get("name", ""))))
+            table.setItem(row, 2, QTableWidgetItem(rec.get("date", "")))
+            table.setItem(row, 3, QTableWidgetItem(rec.get("complaint", "")[:30]))
+        layout.addWidget(table)
+        btn_row = QHBoxLayout()
+        btn_ok = QPushButton("打开")
+        btn_cancel = QPushButton("取消")
+        btn_row.addStretch()
+        btn_row.addWidget(btn_ok)
+        btn_row.addWidget(btn_cancel)
+        layout.addLayout(btn_row)
+        selected = []
+
+        def on_ok():
+            rows = table.selectionModel().selectedRows()
+            if rows:
+                selected.append(sorted_cases[rows[0].row()])
+            dlg.accept()
+        btn_ok.clicked.connect(on_ok)
+        btn_cancel.clicked.connect(dlg.reject)
+        if dlg.exec() == QDialog.DialogCode.Accepted and selected:
+            self.load_case_to_ui(selected[0])
+            self.status_label.setText(f"已打开：{selected[0].get('patient_name', '')} ({selected[0].get('date', '')})")
+            self.log_console.push_message(f"已打开处方 ID={selected[0].get('id', '')}")
+
+    def _save_as_template(self):
+        """存为模板（预留）"""
+        QMessageBox.information(self, "提示", "存为模板功能将在后续版本中开放")
 
     def add_herb_to_editor(self, herb_name):
         table = self.editor.herb_table
